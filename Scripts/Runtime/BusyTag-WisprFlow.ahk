@@ -34,32 +34,69 @@ SetDictationRequested(false)
 OnExit(ShutdownBusyTagRuntime)
 
 ; The tilde (~) lets the original Ctrl+Windows keystrokes continue to Wispr Flow.
-; Watching each left/right modifier separately lets us react to a modifier-only chord.
-~*LControl::UpdateBusyTagState()
-~*RControl::UpdateBusyTagState()
-~*LWin::UpdateBusyTagState()
-~*RWin::UpdateBusyTagState()
-~*LControl Up::UpdateBusyTagState()
-~*RControl Up::UpdateBusyTagState()
-~*LWin Up::UpdateBusyTagState()
-~*RWin Up::UpdateBusyTagState()
+; Start hooks require the other modifier to already be held, so a standalone Ctrl
+; or Windows press cannot enter dictation mode.
+; 2026-09-03: Replace broad modifier listeners with chord-specific start hooks so
+; standalone Ctrl presses do not trigger a color change.
+; ~*LControl::UpdateBusyTagState()
+; ~*RControl::UpdateBusyTagState()
+; ~*LWin::UpdateBusyTagState()
+; ~*RWin::UpdateBusyTagState()
+; ~*LControl Up::UpdateBusyTagState()
+; ~*RControl Up::UpdateBusyTagState()
+; ~*LWin Up::UpdateBusyTagState()
+; ~*RWin Up::UpdateBusyTagState()
+;
+; UpdateBusyTagState(*) {
+;     global BusyTagIsDictating
+;
+;     ctrlIsDown := GetKeyState("LControl", "P") || GetKeyState("RControl", "P")
+;     winIsDown := GetKeyState("LWin", "P") || GetKeyState("RWin", "P")
+;     chordIsDown := ctrlIsDown && winIsDown
+;
+;
+;     if (chordIsDown && !BusyTagIsDictating) {
+;         BusyTagIsDictating := true
+;         SetDictationRequested(true)
+;         RunBusyTagAction("Start")
+;     } else if (!chordIsDown && BusyTagIsDictating) {
+;         BusyTagIsDictating := false
+;         SetDictationRequested(false)
+;         RunBusyTagAction("Stop")
+;     }
+; }
 
-UpdateBusyTagState(*) {
+~^LWin::StartBusyTagDictation()
+~^RWin::StartBusyTagDictation()
+~#LControl::StartBusyTagDictation()
+~#RControl::StartBusyTagDictation()
+~*LControl Up::StopBusyTagDictation()
+~*RControl Up::StopBusyTagDictation()
+~*LWin Up::StopBusyTagDictation()
+~*RWin Up::StopBusyTagDictation()
+
+; Starts dictation mode once AutoHotkey detects the second key of a Ctrl+Windows chord.
+StartBusyTagDictation(*) {
     global BusyTagIsDictating
 
-    ctrlIsDown := GetKeyState("LControl", "P") || GetKeyState("RControl", "P")
-    winIsDown := GetKeyState("LWin", "P") || GetKeyState("RWin", "P")
-    chordIsDown := ctrlIsDown && winIsDown
+    if (BusyTagIsDictating)
+        return
 
-    if (chordIsDown && !BusyTagIsDictating) {
-        BusyTagIsDictating := true
-        SetDictationRequested(true)
-        RunBusyTagAction("Start")
-    } else if (!chordIsDown && BusyTagIsDictating) {
-        BusyTagIsDictating := false
-        SetDictationRequested(false)
-        RunBusyTagAction("Stop")
-    }
+    BusyTagIsDictating := true
+    SetDictationRequested(true)
+    RunBusyTagAction("Start")
+}
+
+; Stops dictation mode when either key in an active Ctrl+Windows chord is released.
+StopBusyTagDictation(*) {
+    global BusyTagIsDictating
+
+    if (!BusyTagIsDictating)
+        return
+
+    BusyTagIsDictating := false
+    SetDictationRequested(false)
+    RunBusyTagAction("Stop")
 }
 
 SetDictationRequested(isRequested) {
